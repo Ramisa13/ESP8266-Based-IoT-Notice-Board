@@ -1,0 +1,167 @@
+/*******************************************************
+ * 💡 ESP8266-Based IoT Notice Board
+ * 
+ * Author: Your Name
+ * Version: 1.0
+ * Date: November 2025
+ * 
+ * Description:
+ * A Wi-Fi enabled IoT notice board that fetches
+ * real-time messages from an API and displays them
+ * on a MAX7219 LED matrix. If Wi-Fi or API fails,
+ * it shows a local fallback message.
+ *******************************************************/
+
+#include <ESP8266WiFi.h>
+#include <ESP8266HTTPClient.h>
+#include <ArduinoJson.h>
+#include <Max72xxPanel.h>
+
+// =================== CONFIGURATION ===================
+
+// Wi-Fi Credentials
+const char* WIFI_SSID     = "YourWiFiName";
+const char* WIFI_PASSWORD = "YourWiFiPassword";
+
+// API Endpoint
+const char* API_ENDPOINT  = "https://your.api.endpoint/message";
+
+// LED Matrix Configuration
+#define PIN_CS       D8   // Chip Select
+#define PIN_CLK      D5   // Clock
+#define PIN_DIN      D7   // Data In
+
+#define NUM_MATRICES 4    // Number of cascaded MAX7219 modules
+#define SCROLL_SPEED 50   // Lower = faster scroll
+#define BRIGHTNESS   5    // LED brightness (0–15)
+
+// Fallback Message
+String backupMessage = "Welcome to IoT Notice Board!";
+
+// =================== GLOBAL VARIABLES ===================
+
+WiFiClient client;
+HTTPClient http;
+Max72xxPanel matrix = Max72xxPanel(PIN_CS, NUM_MATRICES, 1);
+String currentMessage = "";
+
+// =================== SETUP ===================
+
+void setup() {
+  Serial.begin(115200);
+  delay(2000);
+  Serial.println("\n💡 ESP8266 IoT Notice Board Starting...");
+
+  // Initialize LED matrix
+  matrix.setIntensity(BRIGHTNESS);
+  matrix.setRotation(0, 1); // Optional: adjust depending on wiring
+  matrix.fillScreen(LOW);
+  matrix.write();
+
+  // Connect to Wi-Fi
+  connectToWiFi();
+
+  // Try to fetch the initial message
+  fetchMessageFromAPI();
+}
+
+// =================== LOOP ===================
+
+void loop() {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("⚠️ Wi-Fi Disconnected! Displaying backup message...");
+    displayScrollingText(backupMessage);
+    reconnectWiFi();
+  } else {
+    if (fetchMessageFromAPI()) {
+      Serial.println("✅ Message updated successfully!");
+      displayScrollingText(currentMessage);
+    } else {
+      Serial.println("⚠️ Using backup message...");
+      displayScrollingText(backupMessage);
+    }
+  }
+
+  delay(2000); // Fetch new message every few seconds
+}
+
+// =================== FUNCTIONS ===================
+
+// Connect to Wi-Fi network
+void connectToWiFi() {
+  Serial.print("🔌 Connecting to Wi-Fi: ");
+  Serial.println(WIFI_SSID);
+
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  int attempts = 0;
+
+  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
+    delay(1000);
+    Serial.print(".");
+    attempts++;
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\n✅ Wi-Fi Connected!");
+    Serial.print("📡 IP Address: ");
+    Serial.println(WiFi.localIP());
+  } else {
+    Serial.println("\n❌ Failed to connect to Wi-Fi. Using offline mode.");
+  }
+}
+
+// Reconnect to Wi-Fi if disconnected
+void reconnectWiFi() {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.println("🔄 Attempting Wi-Fi reconnection...");
+    WiFi.disconnect();
+    WiFi.reconnect();
+    delay(5000);
+  }
+}
+
+// Fetch message from API endpoint
+bool fetchMessageFromAPI() {
+  if (WiFi.status() != WL_CONNECTED) return false;
+
+  http.begin(client, API_ENDPOINT);
+  int httpCode = http.GET();
+
+  if (httpCode == 200) {
+    String payload = http.getString();
+    Serial.println("📨 API Response: " + payload);
+
+    DynamicJsonDocument doc(256);
+    DeserializationError error = deserializeJson(doc, payload);
+    if (!error && doc.containsKey("message")) {
+      currentMessage = doc["message"].as<String>();
+      http.end();
+      return true;
+    } else {
+      Serial.println("⚠️ JSON Parsing Error!");
+    }
+  } else {
+    Serial.printf("⚠️ HTTP Request failed, code: %d\n", httpCode);
+  }
+
+  http.end();
+  return false;
+}
+
+// Display scrolling text on LED matrix
+void displayScrollingText(String message) {
+  int spacer = 1;
+  int width = 5 + spacer;
+  int messageLength = message.length() * width;
+
+  for (int i = NUM_MATRICES * 8; i > -messageLength; i--) {
+    matrix.fillScreen(LOW);
+
+    for (int j = 0; j < message.length(); j++) {
+      matrix.drawChar(i + j * width, 0, message[j], HIGH, LOW, 1);
+    }
+
+    matrix.write();
+    delay(SCROLL_SPEED);
+  }
+}
