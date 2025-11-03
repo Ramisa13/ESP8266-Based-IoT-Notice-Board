@@ -15,6 +15,12 @@ If the internet connection is lost, the board automatically **switches to a back
 It’s designed to be robust, efficient, and modular — with clear separation between Wi-Fi, API, and display logic.
 
 ---
+## 🎥 Project Demonstration
+
+Watch the working demonstration video here:  
+👉 [**ESP8266 IoT Notice Board Demo Video**](https://unioulu-my.sharepoint.com/:v:/r/personal/rmridha24_student_oulu_fi/Documents/Attachments/video_2025-03-26_15-35-22.mp4?csf=1&web=1&e=Rgkxce&nav=eyJyZWZlcnJhbEluZm8iOnsicmVmZXJyYWxBcHAiOiJTdHJlYW1XZWJBcHAiLCJyZWZlcnJhbFZpZXciOiJTaGFyZURpYWxvZy1MaW5rIiwicmVmZXJyYWxBcHBQbGF0Zm9ybSI6IldlYiIsInJlZmVycmFsTW9kZSI6InZpZXcifX0%3D)
+
+---
 
 ## ✨ Key Features
 
